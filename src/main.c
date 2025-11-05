@@ -34,6 +34,7 @@ int main(void)
     Texture2D pacmanPortalImg   = LoadTexture("assets/images/portal_pacman.png");
     Texture2D tetrisPortalImg   = LoadTexture("assets/images/portal_tetris.png");
     Texture2D seaquestPortalImg = LoadTexture("assets/images/portal_seaquest.png");
+    Texture2D background = LoadTexture("assets/images/fundo_inicio.png");
 
     const int portalWidth = 180;
     const int portalHeight = 280;
@@ -72,7 +73,36 @@ int main(void)
         }
 
         BeginDrawing();
-            ClearBackground(LIGHTGRAY);
+            ClearBackground(BLACK); // Mantém o fundo preto como fallback
+
+            // --- CÓDIGO PARA DESENHAR O FUNDO COBRINDO A TELA ---
+            float screenWidth = (float)GetScreenWidth();
+            float screenHeight = (float)GetScreenHeight();
+            float imageWidth = (float)background.width;
+            float imageHeight = (float)background.height;
+
+            // Calcula as proporções (aspect ratios)
+            float screenRatio = screenWidth / screenHeight;
+            float imageRatio = imageWidth / imageHeight;
+
+            Rectangle sourceRec = { 0, 0, imageWidth, imageHeight }; // Área da imagem original a ser desenhada
+            Rectangle destRec = { 0, 0, screenWidth, screenHeight }; // Onde na tela será desenhada
+
+            // Se a tela for mais "larga" que a imagem, cortamos a altura da imagem
+            if (screenRatio > imageRatio) {
+                sourceRec.height = imageWidth / screenRatio;
+                sourceRec.y = (imageHeight - sourceRec.height) / 2.0f; // Centraliza verticalmente
+            } 
+            // Se a tela for mais "alta" que a imagem, cortamos a largura da imagem
+            else {
+                sourceRec.width = imageHeight * screenRatio;
+                sourceRec.x = (imageWidth - sourceRec.width) / 2.0f; // Centraliza horizontalmente
+            }
+            
+            // Desenha a parte calculada da imagem, esticando-a para preencher a tela
+            DrawTexturePro(background, sourceRec, destRec, (Vector2){0,0}, 0.0f, WHITE);
+            // --- FIM DO CÓDIGO DO FUNDO --- 
+            
 
             switch(currentScene)
             {
@@ -97,6 +127,7 @@ int main(void)
     UnloadTexture(pacmanPortalImg);
     UnloadTexture(tetrisPortalImg);
     UnloadTexture(seaquestPortalImg);
+    UnloadTexture(background);
     CloseWindow();
 
     return 0;
