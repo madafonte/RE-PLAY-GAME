@@ -31,9 +31,9 @@ int main(void)
 
     GameScene currentScene = SCENE_MENU;
 
-    Texture2D pacmanPortalImg   = LoadTexture("assets/images/portal_pacman.png");
-    Texture2D tetrisPortalImg   = LoadTexture("assets/images/portal_tetris.png");
-    Texture2D seaquestPortalImg = LoadTexture("assets/images/portal_seaquest.png");
+    Texture2D pacmanPortalImg   = LoadTexture("assets/images/portal-sem-fundo.png");
+    Texture2D tetrisPortalImg   = LoadTexture("assets/images/portal-sem-fundo.png");
+    Texture2D seaquestPortalImg = LoadTexture("assets/images/portal-sem-fundo.png");
     Texture2D background = LoadTexture("assets/images/fundo_inicio.png");
 
     const int portalWidth = 180;
