@@ -37,9 +37,9 @@ int main(void)
     // <<< FIM DA MUDANÇA >>>
 
     // Texturas do Menu
-    Texture2D pacmanPortalImg   = LoadTexture("assets/images/portal_pacman.png");
-    Texture2D tetrisPortalImg   = LoadTexture("assets/images/portal_tetris.png");
-    Texture2D seaquestPortalImg = LoadTexture("assets/images/portal_seaquest.png");
+    Texture2D pacmanPortalImg   = LoadTexture("assets/images/portal-sem-fundo.png");
+    Texture2D tetrisPortalImg   = LoadTexture("assets/images/portal-sem-fundo.png");
+    Texture2D seaquestPortalImg = LoadTexture("assets/images/portal-sem-fundo.png");
     Texture2D background        = LoadTexture("assets/images/fundo_inicio.png");
 
     // <<< MUDANÇA AQUI: Carrega texturas da intro >>>
@@ -285,7 +285,7 @@ void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int curr
     }
     
     // Posição X: Centraliza horizontalmente
-    int displayPosX = ((screenW - desiredWidth) / 2) - 500; 
+    int displayPosX = ((screenW - desiredWidth) / 2) + 150; 
     // Posição Y: Para ficar no topo, com uma pequena margem (ex: 30 pixels)
     int displayPosY = -300; // Ajuste este valor se quiser mais para cima/baixo
     
