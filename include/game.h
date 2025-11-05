@@ -4,6 +4,7 @@
 // 1. Definição das Cenas (Estados do Jogo)
 // Colocamos isso aqui para que main.c e pacman.c possam saber o que é GameScene
 typedef enum GameScene {
+    SCENE_INTRO,  // <-- ADICIONE ESTA LINHA
     SCENE_MENU,
     SCENE_PACMAN,
     SCENE_TETRIS,
