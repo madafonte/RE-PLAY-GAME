@@ -285,7 +285,7 @@ void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int curr
     }
     
     // Posição X: Centraliza horizontalmente
-    int displayPosX = ((screenW - desiredWidth) / 2) + 150; 
+    int displayPosX = ((screenW - desiredWidth) / 2) -350; 
     // Posição Y: Para ficar no topo, com uma pequena margem (ex: 30 pixels)
     int displayPosY = -300; // Ajuste este valor se quiser mais para cima/baixo
     
