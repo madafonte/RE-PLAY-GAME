@@ -161,61 +161,99 @@ int main(void)
 
 
 // --- Definição das Funções do Menu ---
+// --- Definição das Funções do Menu ---
+
+//
+// SUBSTITUA SUA FUNÇÃO INTEIRA POR ESTA
+//
 void UpdateMenu(GameScene *currentScene, GamePortal portals[3])
 {
+    // --- CÁLCULO DE POSIÇÃO (O que estava faltando) ---
+    // Pega o tamanho ATUAL da tela
     int currentScreenWidth = GetScreenWidth();
     int currentScreenHeight = GetScreenHeight();
 
+    // Define o tamanho base dos portais
     const int portalWidth = 180; 
     const int portalHeight = 280; 
 
+    // Define uma escala (para telas muito pequenas ou muito grandes)
     float scale = 1.0f; 
     if (currentScreenWidth < 800) scale = 0.8f; 
     if (currentScreenWidth > 1200) scale = 1.2f; 
 
+    // Aplica a escala
     int scaledPortalWidth = (int)(portalWidth * scale);
     int scaledPortalHeight = (int)(portalHeight * scale);
     
+    // Calcula as posições Y e X de forma PROPORCIONAL
+    
+    // Posição Y: 50% para baixo da altura da tela (centralizado verticalmente)
+    // (Ajuste 0.5f para 0.6f para mover mais para baixo, 0.4f para cima)
     int posY = (int)(currentScreenHeight * 0.5f); 
+    
+    // Espaçamento: 5% da largura da tela
     int spacing = (int)(currentScreenWidth * 0.05f); 
+    
+    // Posição X: Começa em 60% da largura da tela e centraliza o bloco de portais ali
+    // (Ajuste 0.6f para 0.7f para mover mais para a direita, 0.5f para a esquerda)
     int totalPortalsWidth = (scaledPortalWidth * 3) + (spacing * 2);
     int posX_start = (int)(currentScreenWidth * 0.6f) - (totalPortalsWidth / 2); 
+    // --- FIM DO CÁLCULO ---
 
+    // Agora que as variáveis existem, podemos definir os retângulos
     portals[0].rect = (Rectangle){ (float)posX_start, (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
     portals[1].rect = (Rectangle){ (float)(posX_start + scaledPortalWidth + spacing), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
     portals[2].rect = (Rectangle){ (float)(posX_start + (scaledPortalWidth + spacing) * 2), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
 
+    // Lógica de clique (agora funciona, pois os 'rects' estão corretos)
     Vector2 mousePoint = GetMousePosition();
     for (int i = 0; i < 3; i++) {
         bool isHovered = CheckCollisionPointRec(mousePoint, portals[i].rect);
         if (isHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+
+            // Se o portal clicado for o do Tetris,
+            // chame a função InitTetris() antes de mudar de cena.
+            if (portals[i].targetScene == SCENE_TETRIS)
+            {
+                InitTetris();
+            }
+
             *currentScene = portals[i].targetScene;
             break;
         }
     }
 }
 
+//
+// SUA FUNÇÃO DrawMenu JÁ ESTAVA CORRETA.
+// Ela depende dos cálculos da UpdateMenu.
+//
 void DrawMenu(GamePortal portals[3], const char *title, const char *footer)
 {
     int currentScreenWidth = GetScreenWidth();
     int currentScreenHeight = GetScreenHeight();
 
+    // Desenha o Título
     int titleFontSize = (int)(currentScreenHeight * 0.09f);
     int titleWidth = MeasureText(title, titleFontSize);
     DrawText(title, (currentScreenWidth - titleWidth) / 2, (int)(currentScreenHeight * 0.05f), titleFontSize, MAROON); 
 
+    // Desenha os Portais e seus Nomes
     for (int i = 0; i < 3; i++) {
         Rectangle sourceRect = { 0.0f, 0.0f, (float)portals[i].portalImg.width, (float)portals[i].portalImg.height };
-        Rectangle destRect = portals[i].rect;
+        Rectangle destRect = portals[i].rect; // Usa o 'rect' calculado no UpdateMenu
         
         DrawTexturePro(portals[i].portalImg, sourceRect, destRect, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
+        // Desenha o nome
         int textFontSize = (int)(currentScreenHeight * 0.05f);
         int textPosY = portals[i].rect.y + portals[i].rect.height + (int)(currentScreenHeight * 0.02f);
         int textWidth = MeasureText(portals[i].name, textFontSize);
         DrawText(portals[i].name, portals[i].rect.x + (portals[i].rect.width - textWidth) / 2, textPosY, textFontSize, BLACK);
     }
 
+    // Desenha o Rodapé
     int footerFontSize = (int)(currentScreenHeight * 0.02f);
     int footerWidth = MeasureText(footer, footerFontSize);
     DrawText(footer, (currentScreenWidth - footerWidth) / 2, (int)(currentScreenHeight * 0.95f), footerFontSize, BLACK);
