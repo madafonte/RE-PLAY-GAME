@@ -46,15 +46,7 @@ int main(void)
     Texture2D placaNome   = LoadTexture("assets/images/placa_nome.png");
     Texture2D placaFrase1 = LoadTexture("assets/images/placa_frase1.png");
     Texture2D placaFrase2 = LoadTexture("assets/images/placa_frase2.png");
-    // <<< FIM DA MUDANÇA >>>
-
-    const int portalWidth = 180;
-    const int portalHeight = 280;
-    int spacing = 60;
-    int totalWidth = (portalWidth * 3) + (spacing * 2);
-    int posY = 120;
-    int posX_start = (screenWidth - totalWidth) / 2;
-
+ 
     GamePortal portals[3]; 
 
     portals[0].portalImg = pacmanPortalImg;
@@ -171,6 +163,28 @@ int main(void)
 // --- Definição das Funções do Menu ---
 void UpdateMenu(GameScene *currentScene, GamePortal portals[3])
 {
+    int currentScreenWidth = GetScreenWidth();
+    int currentScreenHeight = GetScreenHeight();
+
+    const int portalWidth = 180; 
+    const int portalHeight = 280; 
+
+    float scale = 1.0f; 
+    if (currentScreenWidth < 800) scale = 0.8f; 
+    if (currentScreenWidth > 1200) scale = 1.2f; 
+
+    int scaledPortalWidth = (int)(portalWidth * scale);
+    int scaledPortalHeight = (int)(portalHeight * scale);
+    
+    int posY = (int)(currentScreenHeight * 0.5f); 
+    int spacing = (int)(currentScreenWidth * 0.05f); 
+    int totalPortalsWidth = (scaledPortalWidth * 3) + (spacing * 2);
+    int posX_start = (int)(currentScreenWidth * 0.6f) - (totalPortalsWidth / 2); 
+
+    portals[0].rect = (Rectangle){ (float)posX_start, (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[1].rect = (Rectangle){ (float)(posX_start + scaledPortalWidth + spacing), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[2].rect = (Rectangle){ (float)(posX_start + (scaledPortalWidth + spacing) * 2), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+
     Vector2 mousePoint = GetMousePosition();
     for (int i = 0; i < 3; i++) {
         bool isHovered = CheckCollisionPointRec(mousePoint, portals[i].rect);
@@ -185,26 +199,6 @@ void DrawMenu(GamePortal portals[3], const char *title, const char *footer)
 {
     int currentScreenWidth = GetScreenWidth();
     int currentScreenHeight = GetScreenHeight();
-
-    const int portalWidth = 180; 
-    const int portalHeight = 280; 
-
-    float scale = 1.0f; 
-    if (currentScreenWidth < 800) scale = 0.8f; 
-    if (currentScreenWidth > 1200) scale = 1.2f; 
-
-    int scaledPortalWidth = (int)(portalWidth * scale);
-    int scaledPortalHeight = (int)(portalHeight * scale);
-    
-    int posY = (int)(currentScreenHeight * 0.45f); 
-    int spacing = (int)(currentScreenWidth * 0.05f); 
-    int totalPortalsWidth = (scaledPortalWidth * 3) + (spacing * 2);
-    int posX_start = (int)(currentScreenWidth * 0.55f) - (totalPortalsWidth / 2); 
-
-
-    portals[0].rect = (Rectangle){ (float)posX_start, (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
-    portals[1].rect = (Rectangle){ (float)(posX_start + scaledPortalWidth + spacing), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
-    portals[2].rect = (Rectangle){ (float)(posX_start + (scaledPortalWidth + spacing) * 2), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
 
     int titleFontSize = (int)(currentScreenHeight * 0.09f);
     int titleWidth = MeasureText(title, titleFontSize);
@@ -226,7 +220,6 @@ void DrawMenu(GamePortal portals[3], const char *title, const char *footer)
     int footerWidth = MeasureText(footer, footerFontSize);
     DrawText(footer, (currentScreenWidth - footerWidth) / 2, (int)(currentScreenHeight * 0.95f), footerFontSize, BLACK);
 }
-
 // <<< MUDANÇA AQUI: Novas funções da Intro >>>
 // ----------------------------------------------------------------------------------
 // Implementação da Cena de Intro (Lógica com Temporizador)
@@ -274,13 +267,11 @@ void UpdateIntro(GameScene *currentScene, int *currentPage, int *frameCounter)
 // ----------------------------------------------------------------------------------
 void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int currentPage)
 {
-    // --- Valores para TENTAR OCUPAR QUASE A TELA INTEIRA ---
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
-    // Vamos tentar fazer a placa ocupar 90% da largura da tela e ajustar a altura
-    // para manter a proporção da imagem original.
-    int desiredWidth = (int)(screenW * 0.9f); 
+    float scaleMargin = 0.9f;
+    int desiredWidth = (int)(screenW * scaleMargin); 
     int desiredHeight; 
 
     Texture2D currentPlaca; 
@@ -291,48 +282,31 @@ void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int curr
     }
     else if (currentPage == 1)
     {
-        currentPlaca = placa1; // placaFrase1
+        currentPlaca = placa1;
     }
-    else // currentPage == 2
+    else 
     {
-        currentPlaca = placa2; // placaFrase2
+        currentPlaca = placa2;
     }
 
-    // Calcular a altura mantendo a proporção da imagem.
-    if (currentPlaca.width > 0 && currentPlaca.height > 0) { // Garante que a imagem é válida
+    if (currentPlaca.width > 0 && currentPlaca.height > 0) {
         desiredHeight = (int)(desiredWidth / ((float)currentPlaca.width / currentPlaca.height));
         
-        // Se a altura calculada for maior que a tela (ex: imagem original muito "alta" e "fina"),
-        // ajustamos pela altura da tela, mantendo a proporção.
-        if (desiredHeight > screenH) {
-            desiredHeight = (int)(screenH * 0.9f);
+        if (desiredHeight > (int)(screenH * scaleMargin)) {
+            desiredHeight = (int)(screenH * scaleMargin);
             desiredWidth = (int)(desiredHeight * ((float)currentPlaca.width / currentPlaca.height));
         }
 
     } else {
-        // Fallback: se a imagem não tiver dimensão válida, use um tamanho fixo grande
         desiredWidth = (int)(screenW * 0.5f);
         desiredHeight = (int)(screenH * 0.5f);
     }
     
-    // Posição X: Centraliza horizontalmente
-    int displayPosX = ((screenW - desiredWidth) / 2) + 150; 
-    // Posição Y: Para ficar no topo, com uma pequena margem (ex: 30 pixels)
-    int displayPosY = -300; // Ajuste este valor se quiser mais para cima/baixo
+    int displayPosX = (screenW - desiredWidth) / 2;
+    int displayPosY = (screenH - desiredHeight) / 2;
     
-    // Retângulo de destino na tela (onde a placa será desenhada)
     Rectangle destRec = { (float)displayPosX, (float)displayPosY, (float)desiredWidth, (float)desiredHeight };
-
-    // Retângulo de origem na textura (a imagem original inteira)
     Rectangle sourceRec = { 0.0f, 0.0f, (float)currentPlaca.width, (float)currentPlaca.height };
 
-    // Desenha a placa
     DrawTexturePro(currentPlaca, sourceRec, destRec, (Vector2){0,0}, 0.0f, WHITE);
-
-    // <<< Código de Debugging >>>
-    // Imprime os valores no terminal para vermos o que está acontecendo
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Screen WxH: %dx%d", screenW, screenH);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Original WxH: %dx%d", currentPlaca.width, currentPlaca.height);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Desired WxH: %dx%d", desiredWidth, desiredHeight);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Pos XxY: %dx%d", displayPosX, displayPosY);
-} // <-- O '}' QUE FALTAVA!
+}
