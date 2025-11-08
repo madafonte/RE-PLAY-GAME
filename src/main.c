@@ -36,17 +36,19 @@ int main(void)
     Texture2D seaquestPortalImg = LoadTexture("assets/images/portal-sem-fundo.png");
     Texture2D background = LoadTexture("assets/images/fundo_inicio.png");
 
-    const int portalWidth = 180;
-    const int portalHeight = 280;
-    int spacing = 60;
-    int totalWidth = (portalWidth * 3) + (spacing * 2);
-    int posY = 120;
-    int posX_start = (screenWidth - totalWidth) / 2;
+    GamePortal portals[3]; 
 
-    GamePortal portals[3];
-    portals[0] = (GamePortal){ (Rectangle){ posX_start, posY, portalWidth, portalHeight }, "PAC-MAN", pacmanPortalImg, SCENE_PACMAN };
-    portals[1] = (GamePortal){ (Rectangle){ posX_start + portalWidth + spacing, posY, portalWidth, portalHeight }, "TETRIS", tetrisPortalImg, SCENE_TETRIS };
-    portals[2] = (GamePortal){ (Rectangle){ posX_start + (portalWidth + spacing) * 2, posY, portalWidth, portalHeight }, "SEAQUEST", seaquestPortalImg, SCENE_SEAQUEST };
+    portals[0].portalImg = pacmanPortalImg;
+    portals[0].name = "PAC-MAN";
+    portals[0].targetScene = SCENE_PACMAN;
+
+    portals[1].portalImg = tetrisPortalImg;
+    portals[1].name = "TETRIS";
+    portals[1].targetScene = SCENE_TETRIS;
+
+    portals[2].portalImg = seaquestPortalImg;
+    portals[2].name = "SEAQUEST";
+    portals[2].targetScene = SCENE_SEAQUEST;
 
     const char *title = "RE: PLAY";
     const char *footer = "developed in C with Raylib";
@@ -151,28 +153,46 @@ void UpdateMenu(GameScene *currentScene, GamePortal portals[3])
 
 void DrawMenu(GamePortal portals[3], const char *title, const char *footer)
 {
-    int screenWidth = GetScreenWidth();
+    int currentScreenWidth = GetScreenWidth();
+    int currentScreenHeight = GetScreenHeight();
 
-    int titleFontSize = 50;
+    const int portalWidth = 180; 
+    const int portalHeight = 280; 
+
+    float scale = 1.0f; 
+    if (currentScreenWidth < 800) scale = 0.8f; 
+    if (currentScreenWidth > 1200) scale = 1.2f; 
+
+    int scaledPortalWidth = (int)(portalWidth * scale);
+    int scaledPortalHeight = (int)(portalHeight * scale);
+    
+    int posY = (int)(currentScreenHeight * 0.45f); 
+    int spacing = (int)(currentScreenWidth * 0.05f); 
+    int totalPortalsWidth = (scaledPortalWidth * 3) + (spacing * 2);
+    int posX_start = (int)(currentScreenWidth * 0.55f) - (totalPortalsWidth / 2); 
+
+
+    portals[0].rect = (Rectangle){ (float)posX_start, (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[1].rect = (Rectangle){ (float)(posX_start + scaledPortalWidth + spacing), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[2].rect = (Rectangle){ (float)(posX_start + (scaledPortalWidth + spacing) * 2), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+
+    int titleFontSize = (int)(currentScreenHeight * 0.09f);
     int titleWidth = MeasureText(title, titleFontSize);
-    DrawText(title, (screenWidth - titleWidth) / 2, 30, titleFontSize, MAROON);
+    DrawText(title, (currentScreenWidth - titleWidth) / 2, (int)(currentScreenHeight * 0.05f), titleFontSize, MAROON); 
 
     for (int i = 0; i < 3; i++) {
-
         Rectangle sourceRect = { 0.0f, 0.0f, (float)portals[i].portalImg.width, (float)portals[i].portalImg.height };
         Rectangle destRect = portals[i].rect;
-
+        
         DrawTexturePro(portals[i].portalImg, sourceRect, destRect, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
-        int textPosY = portals[i].rect.y + portals[i].rect.height + 10;
-        DrawText(portals[i].name, portals[i].rect.x + (portals[i].rect.width - MeasureText(portals[i].name, 30)) / 2, textPosY, 30, BLACK);
+        int textFontSize = (int)(currentScreenHeight * 0.05f);
+        int textPosY = portals[i].rect.y + portals[i].rect.height + (int)(currentScreenHeight * 0.02f);
+        int textWidth = MeasureText(portals[i].name, textFontSize);
+        DrawText(portals[i].name, portals[i].rect.x + (portals[i].rect.width - textWidth) / 2, textPosY, textFontSize, BLACK);
     }
 
-    int footerFontSize = 10;
+    int footerFontSize = (int)(currentScreenHeight * 0.02f);
     int footerWidth = MeasureText(footer, footerFontSize);
-    DrawText(footer, (screenWidth - footerWidth) / 2, 500, footerFontSize, BLACK);
+    DrawText(footer, (currentScreenWidth - footerWidth) / 2, (int)(currentScreenHeight * 0.95f), footerFontSize, BLACK);
 }
-
-//
-// TODO O CÓDIGO DO TETRIS E SEAQUEST FOI REMOVIDO DAQUI
-//
