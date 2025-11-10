@@ -46,19 +46,20 @@ int main(void)
     Texture2D placaNome   = LoadTexture("assets/images/placa_nome.png");
     Texture2D placaFrase1 = LoadTexture("assets/images/placa_frase1.png");
     Texture2D placaFrase2 = LoadTexture("assets/images/placa_frase2.png");
-    // <<< FIM DA MUDANÇA >>>
+ 
+    GamePortal portals[3]; 
 
-    const int portalWidth = 180;
-    const int portalHeight = 280;
-    int spacing = 60;
-    int totalWidth = (portalWidth * 3) + (spacing * 2);
-    int posY = 120;
-    int posX_start = (screenWidth - totalWidth) / 2;
+    portals[0].portalImg = pacmanPortalImg;
+    portals[0].name = "PAC-MAN";
+    portals[0].targetScene = SCENE_PACMAN;
 
-    GamePortal portals[3];
-    portals[0] = (GamePortal){ (Rectangle){ posX_start, posY, portalWidth, portalHeight }, "PAC-MAN", pacmanPortalImg, SCENE_PACMAN };
-    portals[1] = (GamePortal){ (Rectangle){ posX_start + portalWidth + spacing, posY, portalWidth, portalHeight }, "TETRIS", tetrisPortalImg, SCENE_TETRIS };
-    portals[2] = (GamePortal){ (Rectangle){ posX_start + (portalWidth + spacing) * 2, posY, portalWidth, portalHeight }, "SEAQUEST", seaquestPortalImg, SCENE_SEAQUEST };
+    portals[1].portalImg = tetrisPortalImg;
+    portals[1].name = "TETRIS";
+    portals[1].targetScene = SCENE_TETRIS;
+
+    portals[2].portalImg = seaquestPortalImg;
+    portals[2].name = "SEAQUEST";
+    portals[2].targetScene = SCENE_SEAQUEST;
 
     const char *title = "RE: PLAY";
     const char *footer = "developed in C with Raylib";
@@ -160,42 +161,103 @@ int main(void)
 
 
 // --- Definição das Funções do Menu ---
+// --- Definição das Funções do Menu ---
+
+//
+// SUBSTITUA SUA FUNÇÃO INTEIRA POR ESTA
+//
 void UpdateMenu(GameScene *currentScene, GamePortal portals[3])
 {
+    // --- CÁLCULO DE POSIÇÃO (O que estava faltando) ---
+    // Pega o tamanho ATUAL da tela
+    int currentScreenWidth = GetScreenWidth();
+    int currentScreenHeight = GetScreenHeight();
+
+    // Define o tamanho base dos portais
+    const int portalWidth = 180; 
+    const int portalHeight = 280; 
+
+    // Define uma escala (para telas muito pequenas ou muito grandes)
+    float scale = 1.0f; 
+    if (currentScreenWidth < 800) scale = 0.8f; 
+    if (currentScreenWidth > 1200) scale = 1.2f; 
+
+    // Aplica a escala
+    int scaledPortalWidth = (int)(portalWidth * scale);
+    int scaledPortalHeight = (int)(portalHeight * scale);
+    
+    // Calcula as posições Y e X de forma PROPORCIONAL
+    
+    // Posição Y: 50% para baixo da altura da tela (centralizado verticalmente)
+    // (Ajuste 0.5f para 0.6f para mover mais para baixo, 0.4f para cima)
+    int posY = (int)(currentScreenHeight * 0.5f); 
+    
+    // Espaçamento: 5% da largura da tela
+    int spacing = (int)(currentScreenWidth * 0.05f); 
+    
+    // Posição X: Começa em 60% da largura da tela e centraliza o bloco de portais ali
+    // (Ajuste 0.6f para 0.7f para mover mais para a direita, 0.5f para a esquerda)
+    int totalPortalsWidth = (scaledPortalWidth * 3) + (spacing * 2);
+    int posX_start = (int)(currentScreenWidth * 0.6f) - (totalPortalsWidth / 2); 
+    // --- FIM DO CÁLCULO ---
+
+    // Agora que as variáveis existem, podemos definir os retângulos
+    portals[0].rect = (Rectangle){ (float)posX_start, (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[1].rect = (Rectangle){ (float)(posX_start + scaledPortalWidth + spacing), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+    portals[2].rect = (Rectangle){ (float)(posX_start + (scaledPortalWidth + spacing) * 2), (float)posY, (float)scaledPortalWidth, (float)scaledPortalHeight };
+
+    // Lógica de clique (agora funciona, pois os 'rects' estão corretos)
     Vector2 mousePoint = GetMousePosition();
     for (int i = 0; i < 3; i++) {
         bool isHovered = CheckCollisionPointRec(mousePoint, portals[i].rect);
         if (isHovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+
+            // Se o portal clicado for o do Tetris,
+            // chame a função InitTetris() antes de mudar de cena.
+            if (portals[i].targetScene == SCENE_TETRIS)
+            {
+                InitTetris();
+            }
+
             *currentScene = portals[i].targetScene;
             break;
         }
     }
 }
 
+//
+// SUA FUNÇÃO DrawMenu JÁ ESTAVA CORRETA.
+// Ela depende dos cálculos da UpdateMenu.
+//
 void DrawMenu(GamePortal portals[3], const char *title, const char *footer)
 {
-    int screenWidth = GetScreenWidth();
+    int currentScreenWidth = GetScreenWidth();
+    int currentScreenHeight = GetScreenHeight();
 
-    int titleFontSize = 50;
+    // Desenha o Título
+    int titleFontSize = (int)(currentScreenHeight * 0.09f);
     int titleWidth = MeasureText(title, titleFontSize);
-    DrawText(title, (screenWidth - titleWidth) / 2, 30, titleFontSize, MAROON);
+    DrawText(title, (currentScreenWidth - titleWidth) / 2, (int)(currentScreenHeight * 0.05f), titleFontSize, MAROON); 
 
+    // Desenha os Portais e seus Nomes
     for (int i = 0; i < 3; i++) {
-
         Rectangle sourceRect = { 0.0f, 0.0f, (float)portals[i].portalImg.width, (float)portals[i].portalImg.height };
-        Rectangle destRect = portals[i].rect;
-
+        Rectangle destRect = portals[i].rect; // Usa o 'rect' calculado no UpdateMenu
+        
         DrawTexturePro(portals[i].portalImg, sourceRect, destRect, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
-        int textPosY = portals[i].rect.y + portals[i].rect.height + 10;
-        DrawText(portals[i].name, portals[i].rect.x + (portals[i].rect.width - MeasureText(portals[i].name, 30)) / 2, textPosY, 30, BLACK);
+        // Desenha o nome
+        int textFontSize = (int)(currentScreenHeight * 0.05f);
+        int textPosY = portals[i].rect.y + portals[i].rect.height + (int)(currentScreenHeight * 0.02f);
+        int textWidth = MeasureText(portals[i].name, textFontSize);
+        DrawText(portals[i].name, portals[i].rect.x + (portals[i].rect.width - textWidth) / 2, textPosY, textFontSize, BLACK);
     }
 
-    int footerFontSize = 10;
+    // Desenha o Rodapé
+    int footerFontSize = (int)(currentScreenHeight * 0.02f);
     int footerWidth = MeasureText(footer, footerFontSize);
-    DrawText(footer, (screenWidth - footerWidth) / 2, 500, footerFontSize, BLACK);
+    DrawText(footer, (currentScreenWidth - footerWidth) / 2, (int)(currentScreenHeight * 0.95f), footerFontSize, BLACK);
 }
-
 // <<< MUDANÇA AQUI: Novas funções da Intro >>>
 // ----------------------------------------------------------------------------------
 // Implementação da Cena de Intro (Lógica com Temporizador)
@@ -243,13 +305,11 @@ void UpdateIntro(GameScene *currentScene, int *currentPage, int *frameCounter)
 // ----------------------------------------------------------------------------------
 void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int currentPage)
 {
-    // --- Valores para TENTAR OCUPAR QUASE A TELA INTEIRA ---
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
-    // Vamos tentar fazer a placa ocupar 90% da largura da tela e ajustar a altura
-    // para manter a proporção da imagem original.
-    int desiredWidth = (int)(screenW * 0.9f); 
+    float scaleMargin = 0.9f;
+    int desiredWidth = (int)(screenW * scaleMargin); 
     int desiredHeight; 
 
     Texture2D currentPlaca; 
@@ -260,26 +320,22 @@ void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int curr
     }
     else if (currentPage == 1)
     {
-        currentPlaca = placa1; // placaFrase1
+        currentPlaca = placa1;
     }
-    else // currentPage == 2
+    else 
     {
-        currentPlaca = placa2; // placaFrase2
+        currentPlaca = placa2;
     }
 
-    // Calcular a altura mantendo a proporção da imagem.
-    if (currentPlaca.width > 0 && currentPlaca.height > 0) { // Garante que a imagem é válida
+    if (currentPlaca.width > 0 && currentPlaca.height > 0) {
         desiredHeight = (int)(desiredWidth / ((float)currentPlaca.width / currentPlaca.height));
         
-        // Se a altura calculada for maior que a tela (ex: imagem original muito "alta" e "fina"),
-        // ajustamos pela altura da tela, mantendo a proporção.
-        if (desiredHeight > screenH) {
-            desiredHeight = (int)(screenH * 0.9f);
+        if (desiredHeight > (int)(screenH * scaleMargin)) {
+            desiredHeight = (int)(screenH * scaleMargin);
             desiredWidth = (int)(desiredHeight * ((float)currentPlaca.width / currentPlaca.height));
         }
 
     } else {
-        // Fallback: se a imagem não tiver dimensão válida, use um tamanho fixo grande
         desiredWidth = (int)(screenW * 0.5f);
         desiredHeight = (int)(screenH * 0.5f);
     }
@@ -289,19 +345,8 @@ void DrawIntro(Texture2D placa1, Texture2D placa2, Texture2D placaNome, int curr
     // Posição Y: Para ficar no topo, com uma pequena margem (ex: 30 pixels)
     int displayPosY = -300; // Ajuste este valor se quiser mais para cima/baixo
     
-    // Retângulo de destino na tela (onde a placa será desenhada)
     Rectangle destRec = { (float)displayPosX, (float)displayPosY, (float)desiredWidth, (float)desiredHeight };
-
-    // Retângulo de origem na textura (a imagem original inteira)
     Rectangle sourceRec = { 0.0f, 0.0f, (float)currentPlaca.width, (float)currentPlaca.height };
 
-    // Desenha a placa
     DrawTexturePro(currentPlaca, sourceRec, destRec, (Vector2){0,0}, 0.0f, WHITE);
-
-    // <<< Código de Debugging >>>
-    // Imprime os valores no terminal para vermos o que está acontecendo
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Screen WxH: %dx%d", screenW, screenH);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Original WxH: %dx%d", currentPlaca.width, currentPlaca.height);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Desired WxH: %dx%d", desiredWidth, desiredHeight);
-    TraceLog(LOG_INFO, "DEBUG_SIZE: Placa Pos XxY: %dx%d", displayPosX, displayPosY);
-} // <-- O '}' QUE FALTAVA!
+}
