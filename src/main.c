@@ -85,7 +85,7 @@ int main(void)
                 // MUDANÇA 3: Chamamos a função de Update do Pac-Man
                 // passando o PONTEIRO para o estado e o PONTEIRO para a cena.
                 // (O placeholder 'UpdatePacman(&currentScene)' foi substituído)
-                UpdatePacman(&pacmanState, &currentScene);
+                UpdatePacman(&pacmanState, &currentScene); 
                 break;
             case SCENE_TETRIS:
                 UpdateTetris(&currentScene); 
