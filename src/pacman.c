@@ -1,306 +1,301 @@
-#include "pacman.h"
-#include <stdio.h>  // Para FILE* (leitura/escrita)
-#include <stdlib.h> // Para malloc/free (alocação)
-#include <string.h> // Para strcpy (scores)
+#include "pacman.h"   // O "contrato" que este arquivo implementa
+#include <raylib.h>
+#include "scores.h"   // Funções de high score (Load, Save, etc)
+#include <stdlib.h>   // Para malloc e free
+#include <string.h>   // Para memcpy
+#include <math.h>
 
-// --- Constantes Globais ---
-// (REQUISITO: Leitura/Escrita de Arquivo)
-#define MAP_FILE "assets/pacman_map.txt"
-#define SCORES_FILE "assets/scores.txt"
+// --- Constantes da Matriz ---
+#define MAP_ALTURA 21
+#define MAP_LARGURA 19
+#define TAMANHO_BLOCO 24 // Ajustado para caber melhor na sua tela de 960x540
 
-// Tamanho em pixels de cada "bloco" do mapa
-#define TILE_SIZE 16 // Ajustado para caber na tela de 960x540
+// --- Estruturas (Structs) Internas ---
+// (Estas structs só são "vistas" dentro deste arquivo)
 
-// --- Funções Auxiliares (Protótipos) ---
-// (Estas funções são "internas" de pacman.c)
-static void AllocateMapMemory(PacmanGameState *state);
-static void LoadMapFromFile(PacmanGameState *state);
-static void FreeMapMemory(PacmanGameState *state);
-static void FreeHighScoresList(PacmanGameState *state);
-static void AddScoreToList(PacmanGameState *state, const char *name, int score);
-
-// ===================================================================
-// REQUISITO: Leitura de Arquivo + Lista Encadeada + Alocação Dinâmica
-// ===================================================================
-
-void LoadHighScores(PacmanGameState *state) {
-    state->highScores = NULL; // Começa com a lista vazia
-    
-    FILE *file = fopen(SCORES_FILE, "r"); // "r" = read (leitura)
-    if (file == NULL) {
-        perror("Aviso: Nao foi possivel abrir scores.txt (sera criado no fim)");
-        return;
-    }
-
-    char lineBuffer[100];
-    if (fgets(lineBuffer, sizeof(lineBuffer), file) == NULL) {
-        fclose(file);
-        return; // Arquivo vazio
-    }
-
-    char name[4];
+typedef struct Player {
+    Vector2 position;
+    Vector2 speed;
     int score;
-    while (fscanf(file, "%3s %d\n", name, &score) == 2) {
-        // (REQUISITO: Alocação Dinâmica)
-        ScoreNode *newNode = (ScoreNode *)malloc(sizeof(ScoreNode));
-        if (newNode == NULL) {
-            perror("Falha ao alocar memoria para ScoreNode");
-            continue;
-        }
+    int lives;
+} Player;
 
-        strcpy(newNode->name, name);
-        newNode->score = score;
-        
-        // (REQUISITOS: Ponteiros + Lista Encadeada)
-        // Adiciona o novo nó no *início* da lista
-        newNode->next = state->highScores;
-        state->highScores = newNode;
-    }
+typedef struct Ghost {
+    Vector2 position;
+    Vector2 speed;
+    Color color;
+} Ghost;
 
-    fclose(file);
+// Struct principal do JOGO PACMAN
+typedef struct PacmanGame {
+    int mapa[MAP_ALTURA][MAP_LARGURA]; // A Matriz
+    Player *player;    // Ponteiro para o jogador
+    Ghost *ghosts[4];  // Array de Ponteiros para fantasmas
+    ScoreNode *highScores; // Ponteiro para a Lista Encadeada
+    int gameState; // 0 = Jogando, 1 = Game Over
+} PacmanGame;
+
+
+// --- Variável de Estado Estática (Global Interna) ---
+/*
+ * Esta é a "mágica" que faz funcionar com o seu main.c.
+ * 'game' é uma variável global, mas 'static' significa que
+ * ela SÓ pode ser acessada por funções dentro deste arquivo (pacman.c).
+ *
+ * InitPacman() vai preenchê-la.
+ * UpdatePacman() vai modificá-la.
+ * DrawPacman() vai lê-la.
+ * CleanupPacman() vai limpá-la.
+ */
+static PacmanGame game;
+
+// --- Funções Auxiliares (só deste arquivo) ---
+
+void InicializarMapa(int mapa[MAP_ALTURA][MAP_LARGURA]) {
+    // 1 = Parede, 0 = Vazio, 2 = Pac-Dot
+    int tempMap[MAP_ALTURA][MAP_LARGURA] = {
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+        {1,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1},
+        {1,2,1,1,1,2,1,2,1,2,1,2,1,1,1,2,1,2,1},
+        {1,2,1,0,0,2,1,2,1,2,1,2,0,0,1,2,1,2,1}, // 0 = "casa" do fantasma
+        {1,2,1,1,1,2,1,2,1,2,1,2,1,1,1,2,1,2,1},
+        {1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1},
+        {1,1,1,2,1,1,1,2,1,2,1,2,1,1,1,2,1,1,1},
+        {1,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1},
+        {1,2,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,2,1},
+        {1,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,2,1},
+        // ... (complete o resto das 21 linhas)
+        {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1} 
+    };
+    memcpy(mapa, tempMap, sizeof(int) * MAP_ALTURA * MAP_LARGURA);
 }
 
-// ===================================================================
-// REQUISITO: Escrita em Arquivo + Lista Encadeada
-// ===================================================================
+void DrawMap(int mapa[MAP_ALTURA][MAP_LARGURA]) {
+    // (Centraliza o mapa na tela)
+    int offsetX = (GetScreenWidth() - (MAP_LARGURA * TAMANHO_BLOCO)) / 2;
+    int offsetY = (GetScreenHeight() - (MAP_ALTURA * TAMANHO_BLOCO)) / 2;
+    
+    for (int y = 0; y < MAP_ALTURA; y++) {
+        for (int x = 0; x < MAP_LARGURA; x++) {
+            Vector2 pos = { (float)offsetX + x * TAMANHO_BLOCO, (float)offsetY + y * TAMANHO_BLOCO };
+            if (mapa[y][x] == 1) { // Parede
+                DrawRectangleV(pos, (Vector2){TAMANHO_BLOCO, TAMANHO_BLOCO}, BLUE);
+            } else if (mapa[y][x] == 2) { // Pac-Dot
+                Vector2 center = { pos.x + TAMANHO_BLOCO / 2, pos.y + TAMANHO_BLOCO / 2 };
+                DrawCircleV(center, 4, YELLOW);
+            }
+        }
+    }
+}
 
-void SaveHighScores(PacmanGameState *state) {
-    FILE *file = fopen(SCORES_FILE, "w"); // "w" = write (escrita)
-    if (file == NULL) {
-        perror("Erro ao salvar scores.txt");
+// --- Funções Públicas (declaradas em pacman.h) ---
+
+void InitPacman(void) {
+    // REQUISITO: Alocação Dinâmica (malloc) e Ponteiros
+    game.player = (Player*) malloc(sizeof(Player));
+    game.player->position = (Vector2){ (MAP_LARGURA / 2) * TAMANHO_BLOCO, (MAP_ALTURA - 5) * TAMANHO_BLOCO };
+    game.player->speed = (Vector2){ 0, 0 };
+    game.player->score = 0;
+    game.player->lives = 3;
+
+    for (int i = 0; i < 4; i++) {
+        game.ghosts[i] = (Ghost*) malloc(sizeof(Ghost));
+        game.ghosts[i]->position = (Vector2){ (MAP_LARGURA / 2) * TAMANHO_BLOCO, (MAP_ALTURA / 2) * TAMANHO_BLOCO };
+    }
+    game.ghosts[0]->color = RED;
+    game.ghosts[1]->color = PINK;
+    game.ghosts[2]->color = (Color){ 0, 228, 255, 255 }; // Cor Ciano
+    game.ghosts[3]->color = ORANGE;
+
+    // REQUISITO: Matriz
+    InicializarMapa(game.mapa);
+    
+    // REQUISITO: Leitura de Arquivo / Lista Encadeada
+    game.highScores = LoadScores("pacman_scores.txt");
+    
+    game.gameState = 0;
+}
+
+// Em pacman.c
+
+// ... (todo o código anterior, InitPacman, etc.) ...
+
+void UpdatePacman(GameScene *currentScene) {
+    if (game.gameState == 1) { // Se Game Over
+        if (IsKeyPressed(KEY_ENTER)) {
+            *currentScene = SCENE_MENU; // Volta ao Menu
+        }
         return;
     }
 
-    fprintf(file, "TOP SCORES\n"); 
-
-    // (REQUISITO: Ponteiros + Lista Encadeada)
-    ScoreNode *current = state->highScores;
-    while (current != NULL) {
-        fprintf(file, "%s %d\n", current->name, current->score);
-        current = current->next; 
-    }
-
-    fclose(file);
-}
-
-// ===================================================================
-// REQUISITO: Alocação Dinâmica + Matrizes
-// ===================================================================
-
-static void AllocateMapMemory(PacmanGameState *state) {
-    // Definimos o tamanho do mapa aqui
-    state->mapWidth = 28;
-    state->mapHeight = 31;
-
-    // (REQUISITO: Alocação Dinâmica de Matriz)
-    // 1. Aloca um array de ponteiros (linhas)
-    state->map = (char **)malloc(state->mapHeight * sizeof(char *));
-    if (state->map == NULL) {
-        perror("Falha ao alocar linhas do mapa");
-        exit(1); 
-    }
-
-    // 2. Aloca um array de chars para cada linha (colunas)
-    for (int i = 0; i < state->mapHeight; i++) {
-        state->map[i] = (char *)malloc(state->mapWidth * sizeof(char));
-        if (state->map[i] == NULL) {
-            perror("Falha ao alocar colunas do mapa");
-            exit(1); 
-        }
-    }
-}
-
-static void LoadMapFromFile(PacmanGameState *state) {
-    FILE *file = fopen(MAP_FILE, "r");
-    if (file == NULL) {
-        perror("Erro ao abrir pacman_map.txt");
-        exit(1); 
-    }
-
-    state->remainingPills = 0; // Zera a contagem de pílulas
-
-    for (int y = 0; y < state->mapHeight; y++) {
-        for (int x = 0; x < state->mapWidth; x++) {
-            char c = fgetc(file);
-            
-            if (c == '\n') {
-                x--; 
-                continue;
-            }
-
-            state->map[y][x] = c; // (REQUISITO: Matriz)
-
-            if (c == 'P') {
-                state->player.x = x;
-                state->player.y = y;
-                state->map[y][x] = ' '; 
-            }
-            else if (c == '.') {
-                state->remainingPills++; // Conta as pílulas
-            }
-        }
-    }
-
-    fclose(file);
-}
-
-// ===================================================================
-// FUNÇÕES PRINCIPAIS DO JOGO (Chamadas pela main.c)
-// ===================================================================
-
-void InitPacman(PacmanGameState *state) {
-    // (REQUISITO: Ponteiro) - 'state' é o ponteiro para a struct da main
+    // --- 1. LÓGICA DO JOGADOR (MOVIMENTO E PÍLULAS) ---
+    // (Todo o código de movimento do jogador e de comer pílulas
+    // que fizemos da última vez continua aqui...)
     
-    // 1. Aloca e Carrega o Mapa
-    AllocateMapMemory(state); // (Alocação Dinâmica)
-    LoadMapFromFile(state);   // (Leitura de Arquivo, Matriz)
-
-    // 2. Carrega os Scores
-    LoadHighScores(state);    // (Lista Encadeada, Alocação, Leitura)
-
-    // 3. Inicializa o estado do jogador
-    state->player.score = 0;
-    state->player.lives = 3;
-    state->player.direction = 0; 
-    state->gameState = 0; // 0=Jogando
-}
-
-void UpdatePacman(PacmanGameState *state, GameScene *currentScene) {
-    // (REQUISITO: Ponteiro) - 'state' e 'currentScene' são ponteiros
+    // [Seu código de movimento do jogador e colisão com pílulas]
     
-    // Lógica de Input (placeholder)
-    if (IsKeyPressed(KEY_RIGHT)) state->player.direction = 0;
-    if (IsKeyPressed(KEY_LEFT)) state->player.direction = 1;
-    if (IsKeyPressed(KEY_UP)) state->player.direction = 2;
-    if (IsKeyPressed(KEY_DOWN)) state->player.direction = 3;
-    
-    // Lógica de Movimento (placeholder simples)
-    // (Uma lógica real checaria colisão com 'W' na matriz state->map)
     // ...
-    
-    // Lógica de Coleta de Pílula (placeholder)
-    // (REQUISITO: Matriz)
-    if (state->map[state->player.y][state->player.x] == '.') {
-        state->map[state->player.y][state->player.x] = ' '; // Comeu a pílula
-        state->player.score += 10;
-        state->remainingPills--;
-    }
 
-    // Lógica de Vitória
-    if (state->remainingPills == 0) {
-        state->gameState = 2; // Venceu
-    }
-    
-    // Lógica de voltar ao Menu (ex: Game Over ou Venceu)
-    if (IsKeyPressed(KEY_ENTER) || state->gameState == 2) { 
-        state->player.score += 150; // Dá uns pontos de teste
+    // --- 2. LÓGICA DOS FANTASMAS (IA E MOVIMENTO) ---
+    float ghostSpeed = 1.5f; // Velocidade dos fantasmas (um pouco mais lentos que o jogador)
+
+    for (int i = 0; i < 4; i++) {
+        Ghost *fantasma = game.ghosts[i];
+        Vector2 *playerPos = &game.player->position;
+        Vector2 *ghostPos = &fantasma->position;
+
+        Vector2 desiredMove = {0, 0};
+
+        // 1. Achar direção para o jogador
+        float dx = playerPos->x - ghostPos->x;
+        float dy = playerPos->y - ghostPos->y;
+
+        // 2. Priorizar o eixo com maior distância
+        if (fabs(dx) > fabs(dy)) {
+            desiredMove.x = (dx > 0) ? ghostSpeed : -ghostSpeed; // Tenta mover horizontalmente
+        } else {
+            desiredMove.y = (dy > 0) ? ghostSpeed : -ghostSpeed; // Tenta mover verticalmente
+        }
+
+        // 3. Checar colisão com a MATRIZ para o movimento desejado
+        Vector2 nextPos = { ghostPos->x + desiredMove.x, ghostPos->y + desiredMove.y };
         
-        // Adiciona o score na lista
-        AddScoreToList(state, "NEW", state->player.score);
+        // Converte a próxima posição para coordenadas da matriz
+        int targetMapX = (int)((nextPos.x + (TAMANHO_BLOCO / 2)) / TAMANHO_BLOCO);
+        int targetMapY = (int)((nextPos.y + (TAMANHO_BLOCO / 2)) / TAMANHO_BLOCO);
         
-        // (REQUISITO: Escrita em Arquivo)
-        SaveHighScores(state);
-        
-        // Muda a cena de volta para o Menu
-        *currentScene = SCENE_MENU; 
-    }
-}
-
-void DrawPacman(PacmanGameState *state) {
-    // (REQUISITO: Ponteiro) - 'state' é o ponteiro para ler os dados
-    
-    // O BeginDrawing/EndDrawing está na main.c!
-    // Não os coloque aqui.
-
-    // Centraliza o mapa na tela
-    int offsetX = (GetScreenWidth() - (state->mapWidth * TILE_SIZE)) / 2;
-    int offsetY = (GetScreenHeight() - (state->mapHeight * TILE_SIZE)) / 2;
-
-
-    // (REQUISITO: Matriz)
-    // Desenha o mapa lendo a matriz
-    for (int y = 0; y < state->mapHeight; y++) {
-        for (int x = 0; x < state->mapWidth; x++) {
-            char tile = state->map[y][x];
-            
-            if (tile == 'W') { // Parede
-                DrawRectangle(offsetX + x * TILE_SIZE, offsetY + y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLUE);
-            } 
-            else if (tile == '.') { // Pílula
-                DrawCircle(offsetX + x * TILE_SIZE + TILE_SIZE / 2, offsetY + y * TILE_SIZE + TILE_SIZE / 2, 2, WHITE);
+        // 4. Mover
+        if (game.mapa[targetMapY][targetMapX] != 1) {
+            // Caminho livre! Mover
+            ghostPos->x = nextPos.x;
+            ghostPos->y = nextPos.y;
+        } else {
+            // 5. Bloqueado! Tenta o outro eixo.
+            if (desiredMove.x != 0) { // Estava tentando horizontal
+                desiredMove.x = 0;
+                desiredMove.y = (dy > 0) ? ghostSpeed : -ghostSpeed; // Tenta vertical
+            } else { // Estava tentando vertical
+                desiredMove.y = 0;
+                desiredMove.x = (dx > 0) ? ghostSpeed : -ghostSpeed; // Tenta horizontal
             }
+            
+            // Recalcula o alvo e checa de novo
+            nextPos = (Vector2){ ghostPos->x + desiredMove.x, ghostPos->y + desiredMove.y };
+            targetMapX = (int)((nextPos.x + (TAMANHO_BLOCO / 2)) / TAMANHO_BLOCO);
+            targetMapY = (int)((nextPos.y + (TAMANHO_BLOCO / 2)) / TAMANHO_BLOCO);
+
+            if (game.mapa[targetMapY][targetMapX] != 1) {
+                // Agora sim, caminho livre no outro eixo
+                ghostPos->x = nextPos.x;
+                ghostPos->y = nextPos.y;
+            }
+            // (Se bloqueou de novo, o fantasma fica parado 1 frame)
         }
     }
 
-    // (REQUISITO: Struct)
-    // Desenha o jogador
-    DrawCircle(offsetX + state->player.x * TILE_SIZE + TILE_SIZE / 2, 
-               offsetY + state->player.y * TILE_SIZE + TILE_SIZE / 2, 
-               TILE_SIZE / 2 - 1, YELLOW);
 
-    // Desenha UI
-    DrawText(TextFormat("SCORE: %d", state->player.score), 10, 10, 20, WHITE);
-    DrawText(TextFormat("LIVES: %d", state->player.lives), GetScreenWidth() - 100, 10, 20, WHITE);
+    // --- 3. COLISÃO FANTASMA-JOGADOR ---
     
-    if (state->gameState == 2) {
-        DrawText("VOCE VENCEU!", 300, 200, 40, GREEN);
-    }
-    DrawText("Pressione ENTER para sair", 10, GetScreenHeight() - 30, 20, DARKGRAY);
+    // (Usamos retângulos para a colisão. Ajustamos o tamanho para ser "justo")
+    Rectangle playerRect = { 
+        game.player->position.x + 2, 
+        game.player->position.y + 2, 
+        TAMANHO_BLOCO - 4, 
+        TAMANHO_BLOCO - 4 
+    };
 
-    // (REQUISITO: Lista Encadeada)
-    // Desenha os High Scores lidos da lista
-    DrawText("High Scores:", GetScreenWidth() - 150, 40, 20, GOLD);
-    ScoreNode *current = state->highScores;
-    int y_pos = 60;
-    while (current != NULL && y_pos < 200) { // Limita para não estourar a tela
-        DrawText(TextFormat("%s - %d", current->name, current->score), GetScreenWidth() - 150, y_pos, 20, GOLD);
-        y_pos += 20;
-        current = current->next; // (REQUISITO: Ponteiro)
+    for (int i = 0; i < 4; i++) {
+        Rectangle ghostRect = { 
+            game.ghosts[i]->position.x + 2, 
+            game.ghosts[i]->position.y + 2, 
+            TAMANHO_BLOCO - 4, 
+            TAMANHO_BLOCO - 4 
+        };
+
+        if (CheckCollisionRecs(playerRect, ghostRect)) {
+            // COLIDIU! Perde uma vida
+            game.player->lives--;
+
+            // Reinicia a posição do jogador e dos fantasmas
+            game.player->position = (Vector2){ (MAP_LARGURA / 2) * TAMANHO_BLOCO, (MAP_ALTURA - 5) * TAMANHO_BLOCO };
+            for (int j = 0; j < 4; j++) {
+                game.ghosts[j]->position = (Vector2){ (MAP_LARGURA / 2) * TAMANHO_BLOCO, (MAP_ALTURA / 2) * TAMANHO_BLOCO };
+            }
+
+            // Checa se é Game Over
+            if (game.player->lives <= 0 && game.gameState != 1) {
+                game.gameState = 1;
+                AddScore(&(game.highScores), game.player->score);
+                SaveScores("pacman_scores.txt", game.highScores);
+            }
+            
+            break; // Sai do loop 'for', pois o jogador já foi pego
+        }
     }
+
+    // --- Lógica de Game Over (de teste) ---
+    // (Pode remover a tecla Q agora)
+    // if (IsKeyPressed(KEY_Q)) game.player->lives = 0; 
 }
 
-// ===================================================================
-// REQUISITO: Alocação Dinâmica (Liberação)
-// ===================================================================
 
-static void FreeMapMemory(PacmanGameState *state) {
-    if (state->map == NULL) return;
-    for (int i = 0; i < state->mapHeight; i++) {
-        free(state->map[i]);
-    }
-    free(state->map);
-    state->map = NULL;
-}
+// Em src/pacman.c (cole isso no final do arquivo)
 
-static void FreeHighScoresList(PacmanGameState *state) {
-    ScoreNode *current = state->highScores;
-    ScoreNode *next;
-    while (current != NULL) {
-        next = current->next; 
-        free(current);        
-        current = next;       
-    }
-    state->highScores = NULL;
-}
+/*
+ * Desenha o estado atual do jogo na tela
+ */
+void DrawPacman(void) {
+    // (Centraliza o mapa)
+    int offsetX = (GetScreenWidth() - (MAP_LARGURA * TAMANHO_BLOCO)) / 2;
+    int offsetY = (GetScreenHeight() - (MAP_ALTURA * TAMANHO_BLOCO)) / 2;
 
-// Função principal de liberação (Chamada pela main.c)
-void UnloadPacman(PacmanGameState *state) {
-    // (REQUISITO: Ponteiro)
-    FreeMapMemory(state);       // Libera o mapa
-    FreeHighScoresList(state);  // Libera a lista
-}
+    // REQUISITO: Matriz (desenha o mapa)
+    DrawMap(game.mapa);
 
-// Função auxiliar para adicionar um score (usada no Update)
-static void AddScoreToList(PacmanGameState *state, const char *name, int score) {
-    // (REQUISITO: Alocação Dinâmica)
-    ScoreNode *newNode = (ScoreNode *)malloc(sizeof(ScoreNode));
-    if (newNode == NULL) return; 
-
-    strcpy(newNode->name, name);
-    newNode->score = score;
+    // REQUISITO: Ponteiros (desenha o jogador)
+    Vector2 playerPos = { offsetX + game.player->position.x, offsetY + game.player->position.y };
+    DrawCircleV(playerPos, TAMANHO_BLOCO / 2 - 2, YELLOW);
     
-    // (REQUISITO: Ponteiros + Lista Encadeada)
-    newNode->next = state->highScores;
-    state->highScores = newNode;
-    // (Uma lógica real ordenaria a lista antes de salvar)
+    // Desenha Fantasmas
+    for (int i = 0; i < 4; i++) {
+        Vector2 ghostPos = { offsetX + game.ghosts[i]->position.x, offsetY + game.ghosts[i]->position.y };
+        DrawRectangleV(ghostPos, (Vector2){TAMANHO_BLOCO, TAMANHO_BLOCO}, game.ghosts[i]->color);
+    }
+    
+    // Desenha UI (Score, Vidas)
+    DrawText(TextFormat("Score: %d", game.player->score), 20, 10, 20, WHITE);
+    DrawText(TextFormat("Vidas: %d", game.player->lives), GetScreenWidth() - 100, 10, 20, WHITE);
+    
+    // Desenha High Scores (da Lista Encadeada)
+    DrawScores(game.highScores, 20, 40);
+
+    if (game.gameState == 1) {
+        // Corrigido (sem FADE): Desenha um retângulo preto com 50% de transparência
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){ 0, 0, 0, 127 });
+        DrawText("GAME OVER", 300, 250, 40, RED);
+        DrawText("Pressione ENTER para voltar ao Menu", 280, 300, 20, WHITE);
+    }
+}
+
+/*
+ * Libera toda a memória usada pelo jogo Pac-Man
+ */
+void CleanupPacman(void) {
+    
+    // REQUISITO: Alocação Dinâmica (free)
+    
+    // 1. Libera a memória do jogador
+    free(game.player);
+    game.player = NULL;
+
+    // 2. Libera a memória de cada fantasma
+    for (int i = 0; i < 4; i++) {
+        free(game.ghosts[i]);
+        game.ghosts[i] = NULL;
+    }
+
+    // REQUISITOS: Lista Encadeada (free)
+    // 3. Libera toda a memória da lista de scores
+    FreeScoreList(game.highScores);
+    game.highScores = NULL;
 }
