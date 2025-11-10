@@ -27,7 +27,7 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "RE: PLAY");
     SetTargetFPS(60);
 
-    GameScene currentScene = SCENE_INTRO./bin/replay_menu; // Começa na Intro
+    GameScene currentScene = SCENE_INTRO; // Começa na Intro
     int introPage = 0;                  // Controla qual placa mostrar
     int introFrameCounter = 0;          // Nosso temporizador
 
