@@ -1,10 +1,9 @@
 #ifndef SEAQUEST_H
 #define SEAQUEST_H
 
-#include "game.h" // Inclui nossas definições de cena
+#include "game.h" 
 
-// --- Protótipos das Funções do Seaquest ---
 void UpdateSeaquest(GameScene *currentScene);
 void DrawSeaquest(void);
 
-#endif // SEAQUEST_H
+#endif 
